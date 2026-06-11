@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
+use App\Models\JurnalDetail;
 use Illuminate\Http\Request;
-// use App\Models\Accounting\BukuBesar;
-// use Barryvdh\DomPDF\Facade\Pdf;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class BukuBesarController extends Controller
 {
@@ -13,33 +13,52 @@ class BukuBesarController extends Controller
     {
         $filter = $request->get('filter', '7hari');
 
-        // TODO: uncomment saat model BukuBesar sudah dibuat
-        // $query = BukuBesar::query();
-        // $query = match($filter) {
-        //     '30hari' => $query->where('tanggal', '>=', now()->subDays(30)),
-        //     'bulan'  => $query->whereMonth('tanggal', now()->subMonth()->month),
-        //     default  => $query->where('tanggal', '>=', now()->subDays(7)),
-        // };
-        // $bukuBesars  = $query->paginate($request->get('per_page', 5));
-        // $totalDebit  = $query->sum('debit');
-        // $totalKredit = $query->sum('kredit');
-        // $saldoAkhir  = $query->orderBy('tanggal','desc')->first()?->saldo ?? 0;
+        $query = JurnalDetail::with(['akun', 'jurnal'])
+            ->whereHas('jurnal', function($q) use ($filter) {
+                match($filter) {
+                    '30hari' => $q->where('tanggal', '>=', now()->subDays(30)),
+                    'bulan'  => $q->whereMonth('tanggal', now()->subMonth()->month)
+                                  ->whereYear('tanggal', now()->subMonth()->year),
+                    default  => $q->where('tanggal', '>=', now()->subDays(7)),
+                };
+            });
 
-        return view('accounting.buku-besar.index', [
-            'bukuBesars'  => [],      // ganti: $bukuBesars
-            'totalDebit'  => 1000000, // ganti: $totalDebit
-            'totalKredit' => 1000000, // ganti: $totalKredit
-            'saldoAkhir'  => 1000000, // ganti: $saldoAkhir
-        ]);
+        $bukuBesars  = $query->paginate($request->get('per_page', 5));
+        $totalDebit  = $query->sum('debit');
+        $totalKredit = $query->sum('kredit');
+        $saldoAkhir  = $totalDebit - $totalKredit;
+
+        return view('accounting.buku-besar.index', compact(
+            'bukuBesars', 'totalDebit', 'totalKredit', 'saldoAkhir'
+        ));
     }
 
-    public function exportPdf(Request $request)
+   public function exportPdf(Request $request)
     {
-        // TODO:
-        // $bukuBesars = BukuBesar::filter($request->filter)->get();
-        // $pdf = Pdf::loadView('accounting.buku-besar.pdf', compact('bukuBesars'));
-        // return $pdf->download('buku-besar.pdf');
+        $filter = $request->get('filter', '7hari');
 
-        return back()->with('error', 'Export PDF: jalankan composer require barryvdh/laravel-dompdf terlebih dahulu.');
+        // Tarik data penuh (menggunakan ->get() bukan ->paginate()) untuk laporan PDF
+        $query = JurnalDetail::with(['akun', 'jurnal'])
+            ->whereHas('jurnal', function($q) use ($filter) {
+                match($filter) {
+                    '30hari' => $q->where('tanggal', '>=', now()->subDays(30)),
+                    'bulan'  => $q->whereMonth('tanggal', now()->subMonth()->month)
+                                  ->whereYear('tanggal', now()->subMonth()->year),
+                    default  => $q->where('tanggal', '>=', now()->subDays(7)),
+                };
+            });
+
+        $bukuBesars  = $query->get(); 
+        $totalDebit  = $query->sum('debit');
+        $totalKredit = $query->sum('kredit');
+        $saldoAkhir  = $totalDebit - $totalKredit;
+
+        // Render data ke dalam file view cetak PDF kamu
+        $pdf = Pdf::loadView('accounting.buku-besar.pdf', compact(
+            'bukuBesars', 'totalDebit', 'totalKredit', 'saldoAkhir', 'filter'
+        ));
+
+        // Download otomatis file laporan buku besar
+        return $pdf->download('laporan-buku-besar-' . $filter . '.pdf');
     }
 }

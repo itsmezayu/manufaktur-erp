@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
+use App\Models\Jurnal;
 use Illuminate\Http\Request;
-// use App\Models\Accounting\Jurnal;
-// use Barryvdh\DomPDF\Facade\Pdf;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class JurnalController extends Controller
 {
@@ -13,32 +13,29 @@ class JurnalController extends Controller
     {
         $filter = $request->get('filter', '7hari');
 
-        // TODO: uncomment saat model Jurnal sudah dibuat
-        // $query = Jurnal::with('details');
-        // $query = match($filter) {
-        //     '30hari' => $query->where('tanggal', '>=', now()->subDays(30)),
-        //     'bulan'  => $query->whereMonth('tanggal', now()->subMonth()->month)
-        //                       ->whereYear('tanggal', now()->subMonth()->year),
-        //     default  => $query->where('tanggal', '>=', now()->subDays(7)),
-        // };
-        // $jurnals           = $query->paginate($request->get('per_page', 5));
-        // $detailDebitKredit = $query->get()->flatMap->details;
-        // $totalDebit        = $query->sum('total_debit');
-        // $totalKredit       = $query->sum('total_kredit');
+        $query = Jurnal::with('details')->when(true, function($q) use ($filter) {
+            match($filter) {
+                '30hari' => $q->where('tanggal', '>=', now()->subDays(30)),
+                'bulan'  => $q->whereMonth('tanggal', now()->subMonth()->month)
+                              ->whereYear('tanggal', now()->subMonth()->year),
+                default  => $q->where('tanggal', '>=', now()->subDays(7)),
+            };
+        });
 
-        return view('accounting.jurnal.index', [
-            'jurnals'           => [],      // ganti: $jurnals
-            'detailDebitKredit' => [],      // ganti: $detailDebitKredit
-            'totalDebit'        => 1000000, // ganti: $totalDebit
-            'totalKredit'       => 1000000, // ganti: $totalKredit
-        ]);
+        $jurnals           = $query->paginate($request->get('per_page', 5));
+        $detailDebitKredit = $query->get()->flatMap->details;
+        $totalDebit        = $query->sum('total_debit');
+        $totalKredit       = $query->sum('total_kredit');
+
+        return view('accounting.jurnal.index', compact(
+            'jurnals', 'detailDebitKredit', 'totalDebit', 'totalKredit'
+        ));
     }
 
     public function edit($id)
     {
-        // TODO: $jurnal = Jurnal::with('details')->findOrFail($id);
-        // return view('accounting.jurnal.form', compact('jurnal'));
-        return redirect()->route('accounting.jurnal.index');
+        $jurnal = Jurnal::with('details')->findOrFail($id);
+        return view('accounting.jurnal.form', compact('jurnal'));
     }
 
     public function update(Request $request, $id)
@@ -48,7 +45,7 @@ class JurnalController extends Controller
             'status'     => ['required', 'in:draft,posted'],
         ]);
 
-        // TODO: Jurnal::findOrFail($id)->update($request->only('keterangan','status'));
+        Jurnal::findOrFail($id)->update($request->only('keterangan', 'status'));
 
         return redirect()->route('accounting.jurnal.index')
                          ->with('success', 'Jurnal berhasil diperbarui.');
@@ -56,7 +53,7 @@ class JurnalController extends Controller
 
     public function destroy($id)
     {
-        // TODO: Jurnal::findOrFail($id)->delete();
+        Jurnal::findOrFail($id)->delete();
 
         return redirect()->route('accounting.jurnal.index')
                          ->with('success', 'Jurnal berhasil dihapus.');
@@ -64,12 +61,28 @@ class JurnalController extends Controller
 
     public function exportPdf(Request $request)
     {
-        // TODO: install dompdf dulu: composer require barryvdh/laravel-dompdf
-        // $filter  = $request->get('filter', '7hari');
-        // $jurnals = Jurnal::filter($filter)->with('details')->get();
-        // $pdf = Pdf::loadView('accounting.jurnal.pdf', compact('jurnals'));
-        // return $pdf->download('jurnal-transaksi.pdf');
+        $filter = $request->get('filter', '7hari');
 
-        return back()->with('error', 'Export PDF: jalankan composer require barryvdh/laravel-dompdf terlebih dahulu.');
+        // Tarik data penuh menggunakan ->get() tanpa pagination untuk laporan cetak
+        $query = Jurnal::with(['details.akun'])->when(true, function($q) use ($filter) {
+            match($filter) {
+                '30hari' => $q->where('tanggal', '>=', now()->subDays(30)),
+                'bulan'  => $q->whereMonth('tanggal', now()->subMonth()->month)
+                              ->whereYear('tanggal', now()->subMonth()->year),
+                default  => $q->where('tanggal', '>=', now()->subDays(7)),
+            };
+        });
+
+        $jurnals     = $query->get();
+        $totalDebit  = $query->sum('total_debit');
+        $totalKredit = $query->sum('total_kredit');
+
+        // Render data ke file view pdf
+        $pdf = Pdf::loadView('accounting.jurnal.pdf', compact(
+            'jurnals', 'totalDebit', 'totalKredit', 'filter'
+        ));
+
+        // Download otomatis file laporan jurnal
+        return $pdf->download('laporan-jurnal-transaksi-' . $filter . '.pdf');
     }
 }

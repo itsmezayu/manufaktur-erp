@@ -180,7 +180,8 @@
     </div>
 </div>
 
-{{-- Charts --}}
+{{-- Charts  --}}
+
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h3 class="text-sm font-bold text-gray-900 mb-4">Jurnal Transaksi Overview</h3>

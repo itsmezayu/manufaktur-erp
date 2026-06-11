@@ -9,8 +9,8 @@
         <h1 class="text-xl font-bold text-gray-900">Laporan Laba Rugi</h1>
         <p class="text-sm text-gray-400 mt-0.5">Periode : {{ $periodeAwal ?? '01-01-2026' }} s/d {{ $periodeAkhir ?? '31-01-2026' }}</p>
     </div>
-    <a href="{{ route('accounting.jurnal.export-pdf', ['filter' => request('filter','7hari')]) }}"
-       class="bg-red-500 border border-red-400 font-medium text-sm text-white hover:bg-red-700 hover:text-white py-2.5 px-5 rounded-xl">Export PDF</a>
+    <a href="{{ route('accounting.laba-rugi.export-pdf') }}"
+   class="bg-red-500 border border-red-400 font-medium text-sm text-white hover:bg-red-700 hover:text-white py-2.5 px-5 rounded-xl">Export PDF</a>
 </div>
 
 {{-- Pendapatan --}}

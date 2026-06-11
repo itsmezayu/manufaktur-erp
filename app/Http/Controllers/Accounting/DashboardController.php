@@ -3,89 +3,77 @@
 namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
+use App\Models\Akun;
+use App\Models\Jurnal;
 use Illuminate\Http\Request;
-
-// TODO: Uncomment model imports saat backend sudah siap
-// use App\Models\Accounting\Jurnal;
-// use App\Models\Accounting\BukuBesar;
-// use App\Models\Accounting\Akun;
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        /*
-        |------------------------------------------------------------------
-        | TODO (Backend team): Ganti komentar di bawah dengan query nyata
-        |------------------------------------------------------------------
-        */
+        $recentJurnals   = Jurnal::latest()->limit(5)->get();
+        $totalDebit      = Jurnal::sum('total_debit');
+        $totalKredit     = Jurnal::sum('total_kredit');
 
-        // $recentJurnals   = Jurnal::latest()->limit(5)->get();
-        // $totalDebit      = Jurnal::sum('total_debit');
-        // $totalKredit     = Jurnal::sum('total_kredit');
+        $pendapatanAkun  = Akun::pendapatan()->with('jurnalDetails')->get();
+        $totalPendapatan = $pendapatanAkun->sum(fn($a) => $a->jurnalDetails->sum('kredit'));
+        $pendapatan      = $pendapatanAkun->map(fn($a) => [
+            'nama'   => $a->nama_akun,
+            'jumlah' => $a->jurnalDetails->sum('kredit'),
+        ])->toArray();
 
-        // $pendapatan      = Akun::pendapatan()->withTotal()->get();
-        // $totalPendapatan = $pendapatan->sum('total');
-        // $beban           = Akun::beban()->withTotal()->get();
-        // $totalBeban      = $beban->sum('total');
-        // $labaBersih      = $totalPendapatan - $totalBeban;
+        $bebanAkun   = Akun::beban()->with('jurnalDetails')->get();
+        $totalBeban  = $bebanAkun->sum(fn($a) => $a->jurnalDetails->sum('debit'));
+        $beban       = $bebanAkun->map(fn($a) => [
+            'nama'   => $a->nama_akun,
+            'jumlah' => $a->jurnalDetails->sum('debit'),
+        ])->toArray();
 
-        // $aset            = Akun::aset()->withTotal()->get();
-        // $totalAset       = $aset->sum('total');
-        // $kewajibanModal  = Akun::kewajibanModal()->withTotal()->get();
-        // $totalKM         = $kewajibanModal->sum('total');
+        $labaBersih  = $totalPendapatan - $totalBeban;
 
-        // $akunList        = Akun::aktif()->get();
-        // $departemenBeban = ...; // dari modul HR/Finance
+        $asetAkun    = Akun::aset()->with('jurnalDetails')->get();
+        $totalAset   = $asetAkun->sum(fn($a) => $a->jurnalDetails->sum('debit') - $a->jurnalDetails->sum('kredit'));
+        $aset        = $asetAkun->map(fn($a) => [
+            'nama'   => $a->nama_akun,
+            'jumlah' => $a->jurnalDetails->sum('debit') - $a->jurnalDetails->sum('kredit'),
+        ])->toArray();
+
+        $kewajibanAkun  = Akun::kewajiban()->with('jurnalDetails')->get();
+        $modalAkun      = Akun::modal()->with('jurnalDetails')->get();
+        $kewajibanModal = array_merge(
+            $kewajibanAkun->map(fn($a) => ['nama' => $a->nama_akun, 'jumlah' => $a->jurnalDetails->sum('kredit') - $a->jurnalDetails->sum('debit')])->toArray(),
+            $modalAkun->map(fn($a) => ['nama' => $a->nama_akun, 'jumlah' => $a->jurnalDetails->sum('kredit') - $a->jurnalDetails->sum('debit')])->toArray()
+        );
+        $totalKM = collect($kewajibanModal)->sum('jumlah');
+
+        $akunList = Akun::aktif()->get();
 
         return view('accounting.dashboard', [
-            // --- Jurnal ---
-            'recentJurnals'   => [],          // ganti: $recentJurnals
-            'totalDebit'      => 1000000,     // ganti: $totalDebit
-            'totalKredit'     => 1000000,     // ganti: $totalKredit
+            'recentJurnals'   => $recentJurnals,
+            'totalDebit'      => $totalDebit,
+            'totalKredit'     => $totalKredit,
+            'periodeLabaRugi' => now()->startOfMonth()->format('d-m-Y') . ' s/d ' . now()->endOfMonth()->format('d-m-Y'),
+            'pendapatan'      => $pendapatan,
+            'totalPendapatan' => $totalPendapatan,
+            'beban'           => $beban,
+            'totalBeban'      => $totalBeban,
+            'labaBersih'      => $labaBersih,
+            'tanggalNeraca'   => now()->format('d-m-Y'),
+            'aset'            => $aset,
+            'kewajibanModal'  => $kewajibanModal,
+            'totalAset'       => $totalAset,
+            'totalKM'         => $totalKM,
+            'akunList'        => $akunList,
+            'departemenBeban' => $bebanAkun->map(fn($a) => [
+    'nama' => $a->nama_akun,
+    'pct'  => $totalBeban > 0 ? round(($a->jurnalDetails->sum('debit') / $totalBeban) * 100) : 0,
+])->toArray(),
 
-            // --- Laba Rugi ---
-            'periodeLabaRugi' => '01-01-2026 s/d 31-01-2026',
-            'pendapatan'      => [['nama' => 'Penjualan', 'jumlah' => 50000]],
-            'totalPendapatan' => 50000,
-            'beban'           => [
-                ['nama' => 'Beban Gaji',       'jumlah' => 10000000],
-                ['nama' => 'Beban Listrik',     'jumlah' =>  2000000],
-                ['nama' => 'Beban Bahan Baku',  'jumlah' => 20000000],
-            ],
-            'totalBeban'      => 32000000,
-            'labaBersih'      => 18000000,
-
-            // --- Neraca ---
-            'tanggalNeraca'   => '31-01-2026',
-            'aset'            => [
-                ['nama' => 'Kas',        'jumlah' => 5000000],
-                ['nama' => 'Bank',       'jumlah' => 2000000],
-                ['nama' => 'Piutang',    'jumlah' => 1500000],
-                ['nama' => 'Persediaan', 'jumlah' => 1500000],
-            ],
-            'kewajibanModal'  => [
-                ['nama' => 'Hutang Usaha', 'jumlah' => 3000000],
-                ['nama' => 'Modal',        'jumlah' => 7000000],
-            ],
-            'totalAset'       => 10000000,
-            'totalKM'         => 10000000,
-
-            // --- Rasio ---
-            'rasio'           => [
-                ['label' => 'Rasio', 'nilai' => 'Rp 1.50',  'color' => 'border-gray-200 text-gray-900'],
-                ['label' => 'Rasio', 'nilai' => 'Rp 1.20',  'color' => 'border-gray-200 text-gray-900'],
-                ['label' => 'Rasio', 'nilai' => '12.50%',   'color' => 'border-gray-200 text-red-500'],
-                ['label' => 'Rasio', 'nilai' => '12.50%',   'color' => 'border-gray-200 text-blue-600'],
-            ],
-
-            // --- Akun ---
-            'akunList'        => [],          // ganti: $akunList
-            'departemenBeban' => [
-                ['nama' => 'Production', 'pct' => 60],
-                ['nama' => 'Marketing',  'pct' => 40],
-                ['nama' => 'Lainnya',    'pct' => 10],
-            ],
+'rasio' => [
+    ['label' => 'Current Ratio', 'nilai' => $totalKM > 0 ? number_format($totalAset / $totalKM, 2) : '0', 'color' => 'border-gray-200 text-gray-900'],
+    ['label' => 'Debt Ratio', 'nilai' => $totalAset > 0 ? number_format(collect($kewajibanAkun->map(fn($a) => $a->jurnalDetails->sum('kredit')))->sum() / $totalAset * 100, 2).'%' : '0%', 'color' => 'border-gray-200 text-red-500'],
+    ['label' => 'Profit Margin', 'nilai' => $totalPendapatan > 0 ? number_format($labaBersih / $totalPendapatan * 100, 2).'%' : '0%', 'color' => 'border-gray-200 text-blue-600'],
+],
         ]);
     }
 }

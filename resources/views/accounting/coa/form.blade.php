@@ -78,6 +78,23 @@
                 @enderror
             </div>
 
+            {{-- Tipe Akun --}}
+<div>
+    <label class="block text-sm font-medium text-gray-700 mb-1.5">Tipe Akun</label>
+    <select name="tipe_akun"
+            class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition
+                   @error('tipe_akun') border-red-400 @enderror">
+        @foreach(['aset','kewajiban','modal','pendapatan','beban'] as $tipe)
+        <option value="{{ $tipe }}" {{ old('tipe_akun', $akun->tipe_akun ?? '') === $tipe ? 'selected' : '' }}>
+            {{ ucfirst($tipe) }}
+        </option>
+        @endforeach
+    </select>
+    @error('tipe_akun')
+    <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
+    @enderror
+</div>
+
             {{-- Status Akun --}}
             <div x-data="{ open: false, selected: '{{ old('status', $akun->status ?? 'Aktif') }}' }">
                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Status Akun</label>

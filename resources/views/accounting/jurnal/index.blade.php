@@ -172,8 +172,7 @@
             <tbody>
                 @forelse($detailDebitKredit ?? [] as $detail)
                 <tr class="border-t border-gray-50">
-                    <td class="py-3 text-sm text-gray-500">{{ $detail->tanggal }}</td>
-                    <td class="py-3 text-sm font-semibold text-gray-800">{{ $detail->debit ? 'Rp '.number_format($detail->debit,0,',','.') : '-' }}</td>
+<td class="py-3 text-sm text-gray-500">{{ $detail->akun->nama_akun ?? '-' }}</td>                    <td class="py-3 text-sm font-semibold text-gray-800">{{ $detail->debit ? 'Rp '.number_format($detail->debit,0,',','.') : '-' }}</td>
                     <td class="py-3 text-sm font-semibold text-gray-800">{{ $detail->kredit ? 'Rp '.number_format($detail->kredit,0,',','.') : '-' }}</td>
                 </tr>
                 @empty
